@@ -1,0 +1,23 @@
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Python Tools for Visual Studio (PTVS)
+__pycache__/
+venv/
+*.pyc
+
+#.csv is ignored
+*.csv
+
+# dataset is ignored
+cifar-10-batches-bin/
+*.tar.gz
+
+# saved model ignored
+log/
+
+!/*.gitignore
+!/*.py
+*/
+
