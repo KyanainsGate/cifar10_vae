@@ -11,7 +11,7 @@ xavier_initializer = tf.contrib.layers.xavier_initializer()
 
 # VAE module
 class VAE(object):
-    def __init__(self, img_w_h_ch, latent_dim, lr=10e-3, log_path='./log/',
+    def __init__(self, img_w_h_ch, latent_dim, lr=0.001, log_path='./log/',
                  restore=False,
                  rm_exists_in_logdir=False):
         # Graph definition
@@ -42,8 +42,9 @@ class VAE(object):
         self.sum_train, self.sum_test = self._create_summary(self.cost, self.latent_cost)
         if rm_exists_in_logdir or not restore:
             if not os.path.exists(self.log_path):
-                shutil.rmtree(self.log_path)
                 os.mkdir(self.log_path)
+            else:
+                shutil.rmtree(self.log_path)
         else:
             pass
         self.saver = tf.train.Saver()
@@ -85,7 +86,7 @@ class VAE(object):
             return z_mean, z_log_var  # var = sigma ** 2
 
     def _decoder_net(self, inpt_holder, reuse=False):
-        with tf.variable_scope('cmd_decoder', reuse=reuse):
+        with tf.variable_scope('Decoder', reuse=reuse):
             z_develop = tf.layers.dense(inpt_holder, units=4 * 4 * 64)
             net = tf.nn.relu(tf.reshape(z_develop, [-1, 4, 4, 64]))
             net = tf.layers.conv2d_transpose(inputs=net,
@@ -132,15 +133,33 @@ class VAE(object):
         return z
 
     def generate_from_gausian(self, batch_dim):
+        """
+        output values by trained-decoder from gaussian noise
+
+        :param batch_dim: A string; the number of generation images.
+        :return: A 4-D Tensor of; [batch_dim, w, h, ch]
+        """
         samples = tf.random_normal([batch_dim, self.latent_dim], 0, 1, dtype=tf.float32)
         x = self._decoder_net(samples, reuse=True)
         return x
 
-    def _loss_func(self, inferenc_vec, true_vec, z_mean, z_log_var):
+    def _loss_func(self, pred_tensor, true_tensor, z_mean, z_log_var):
         # Compute KL divergence (latent loss)
+        # print(z_mean)
+        # print(z_log_var)
         D_kl = -.5 * tf.reduce_sum(1. + z_log_var - tf.pow(z_mean, 2) - tf.exp(z_log_var),
                                    reduction_indices=1, name='latent_loss')
-        reconstruction_loss = tf.reduce_sum(0.5 * (true_vec - inferenc_vec) ** 2, name='reconst_loss')
+
+        inferenc_vec = tf.contrib.layers.flatten(pred_tensor)
+        true_vec = tf.contrib.layers.flatten(true_tensor)
+        # print(inferenc_vec)
+        # print(true_vec)
+        # MSE loss
+        # reconstruction_loss = tf.reduce_sum(0.5 * (true_vec - inferenc_vec) ** 2, name='reconst_loss')
+        # Cross entropy loss
+        reconstruction_loss = -tf.reduce_sum(true_vec * tf.log(tf.clip_by_value(inferenc_vec, 1e-10, 1.0)) + \
+                                             (1 - true_vec) * tf.log(tf.clip_by_value(1 - inferenc_vec, 1e-10, 1.0)), 1,
+                                             name='reconstruction_loss_RGB')
         reconst_scalar = tf.reduce_mean(reconstruction_loss)
         latent_scalar = tf.reduce_mean(D_kl)
         cost = reconst_scalar + latent_scalar
@@ -178,7 +197,7 @@ def show_normalized_img_square(normalized_img_batch, generate_num=100, w_mergin=
     :param h_init_mergin:
     :param background_color:
     :param save_fig_name: If you specify it, the <save_fig_name> is saved (e.g.) "path_to_dir/out.png"
-    :param perm:
+    :param perm: A bool:If true, perm the order of input tensor (= normalized_img_batch).
     :param imshow_mode: If true, plt.show will called,
     :return:
     """

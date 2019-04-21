@@ -13,12 +13,12 @@ data_cfg = {
 
 network_cfg = {
     'img_size_list': [32, 32, 3],
-    'latent_dim': 100,
-    'log_path': './log/',
+    'latent_dim': 64,
+    'log_path': './test/',
     'log_overwrite_save': True,
 }
 
-# If you use GU, please setting follow;
+# If you use GPU, please setting follow;
 tf_config = tf.ConfigProto(
     gpu_options=tf.GPUOptions(
         visible_device_list="0",  # specify GPU number
@@ -27,7 +27,7 @@ tf_config = tf.ConfigProto(
 )
 
 
-def train_vae(total_epoch=1000, batch_size=256, log_out_span=10, log_path=network_cfg['log_path']):
+def train_vae(total_epoch=1000, batch_size=20, log_out_span=10, log_path=network_cfg['log_path']):
     # Data
     dataset = cifar10_loader.Cifar10(dirpath=data_cfg['Path_to_save_cifar10_bin'],
                                      data_number_for_train=data_cfg['Load_file_num'],
@@ -66,7 +66,7 @@ def train_vae(total_epoch=1000, batch_size=256, log_out_span=10, log_path=networ
                 vae.img_plh: train_img,
                 vae.real_batch_holder: batch_num,
             }
-            _, loss = sess.run([vae.optimize, vae.cost], feed_dict=feed)
+            _, loss, train_sum = sess.run([vae.optimize, vae.cost, vae.sum_train], feed_dict=feed)
             sum_loss += np.mean(loss) * batch_size
             cnt += 1
         loss_in_epoch = sum_loss / N_train
@@ -75,11 +75,11 @@ def train_vae(total_epoch=1000, batch_size=256, log_out_span=10, log_path=networ
 
         if epoch % log_out_span == 0:
             # Training summary
-            train_sum = sess.run(vae.sum_train, feed_dict=feed)
+            # train_sum = sess.run(vae.sum_train, feed_dict=feed)
             # Test summary
             test_feed = {
-                vae.img_plh: train_img,
-                vae.real_batch_holder: batch_num,
+                vae.img_plh: X_test,
+                vae.real_batch_holder: len(X_test),
             }
             test_sum = sess.run(vae.sum_train, feed_dict=test_feed)
             saver.save(sess, log_path + 'graph1')  # save graph.meta,graph.index and so on ...

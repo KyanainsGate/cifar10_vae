@@ -302,8 +302,8 @@ if __name__ == '__main__':
     print('-cifar10_loader.py exapmle -')
     Path_To_Save_Sicar10 = './cifar-10-batches-bin/'
     Data_Augmentation_Ratio = 5
-    Get_Images_Per_One_file = 100  #
-    File_Id_To_visualise = 3
+    Get_Images_Per_One_file = 10  #
+    File_Id_To_visualise = 2
     dataset = Cifar10(dirpath='./cifar-10-batches-bin/',
                       data_number_for_train=Data_Augmentation_Ratio,
                       get_samples_per_one_file=Get_Images_Per_One_file)
