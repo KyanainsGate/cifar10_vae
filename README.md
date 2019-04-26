@@ -1,5 +1,5 @@
 # VAE & CNN example of CIFAR10(Tensorflow)
-CIFAR10でVAによるreconstructEやCNNによるclassificationをやる．  
+CIFAR10でVAEによるreconstructやCNNによるclassificationをやる．  
 Windows10 + Pycharm なら，tensorboardはwsl上で起動しましょう．  
 なぜなら，windowsがpermission周りにうるさかったりフォルダを手放さなかったりするから．
 
