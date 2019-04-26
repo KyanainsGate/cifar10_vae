@@ -11,15 +11,21 @@ xavier_initializer = tf.contrib.layers.xavier_initializer()
 
 # VAE module
 class VAE(object):
-    def __init__(self, img_w_h_ch, latent_dim, lr=0.001, log_path='./log/',
-                 restore=False,
-                 rm_exists_in_logdir=False):
+    def __init__(self, net_cfg):
+
         # Graph definition
-        self.img_size = img_w_h_ch
-        self.restore = restore
-        self.latent_dim = latent_dim
-        self.lr = lr
-        self.log_path = log_path
+        self.img_size = net_cfg['img_shape']
+        self.restore = False
+        if 'restore' in net_cfg:
+            self.restore = net_cfg['restore']
+        self.latent_dim = net_cfg['latent_dim']
+        self.lr = 0.001
+        if 'learning_rate' in net_cfg:
+            self.lr = net_cfg['learning_rate']
+        self.log_path = net_cfg['log_path']
+        self.rm_exists_in_logdir = False
+        if 'log_overwrite_save' in net_cfg:
+            self.rm_exists_in_logdir = net_cfg['log_overwrite_save']
         # Tneosrflow's plh
         self.img_plh = tf.placeholder(dtype=tf.float32,
                                       shape=(None, self.img_size[0], self.img_size[1], self.img_size[2]),
@@ -40,7 +46,8 @@ class VAE(object):
         self.cost, self.latent_cost = self._loss_func(self.decoder, self.img_plh, self.z_mean, self.z_log_var)
         self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.cost)
         self.sum_train, self.sum_test = self._create_summary(self.cost, self.latent_cost)
-        if rm_exists_in_logdir or not restore:
+        # log configuration
+        if self.rm_exists_in_logdir or not self.restore:
             if not os.path.exists(self.log_path):
                 os.mkdir(self.log_path)
             else:
@@ -49,8 +56,6 @@ class VAE(object):
             pass
         self.saver = tf.train.Saver()
         self.iter_counter = 0
-
-        #
 
     def encoder_net(self, inpt_holder, latent_dim, reuse=False):
         with tf.variable_scope('Encoder', reuse=reuse):
@@ -145,15 +150,11 @@ class VAE(object):
 
     def _loss_func(self, pred_tensor, true_tensor, z_mean, z_log_var):
         # Compute KL divergence (latent loss)
-        # print(z_mean)
-        # print(z_log_var)
         D_kl = -.5 * tf.reduce_sum(1. + z_log_var - tf.pow(z_mean, 2) - tf.exp(z_log_var),
                                    reduction_indices=1, name='latent_loss')
 
         inferenc_vec = tf.contrib.layers.flatten(pred_tensor)
         true_vec = tf.contrib.layers.flatten(true_tensor)
-        # print(inferenc_vec)
-        # print(true_vec)
         # MSE loss
         # reconstruction_loss = tf.reduce_sum(0.5 * (true_vec - inferenc_vec) ** 2, name='reconst_loss')
         # Cross entropy loss
@@ -181,9 +182,87 @@ class VAE(object):
         return summary_train, summary_eval
 
 
+class CNN(object):
+    def __init__(self, net_cfg):
+        # Graph definition
+        self.img_size = net_cfg['img_shape']
+        self.restore = False
+        if 'restore' in net_cfg:
+            self.restore = net_cfg['restore']
+        self.lr = 0.001
+        if 'learning_rate' in net_cfg:
+            self.lr = net_cfg['learning_rate']
+        self.log_path = net_cfg['log_path']
+        self.rm_exists_in_logdir = False
+        if 'log_overwrite_save' in net_cfg:
+            self.rm_exists_in_logdir = net_cfg['log_overwrite_save']
+        # Tneosrflow's plh
+        self.img_plh = tf.placeholder(dtype=tf.float32,
+                                      shape=(None, self.img_size[0], self.img_size[1], self.img_size[2]),
+                                      name="inpt_img")
+        self.t_plh = tf.placeholder(tf.float32, [None, 10])
+        self.is_training_holder = tf.placeholder(dtype=bool, name='is_training')
+        self.real_batch_holder = tf.placeholder(dtype=tf.int32, shape=())
+        # Build Graph
+        self.y = self.cnn_net(self.img_plh, self.is_training_holder)
+        self.loss = self._loss_func(self.y, self.t_plh)
+        self.accuracy = self._accuracy(self.y, self.t_plh)
+        self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+        self.sum_train, self.sum_test = self._create_summary(self.loss, self.accuracy)
+        # log configuration
+        if self.rm_exists_in_logdir or not self.restore:
+            if not os.path.exists(self.log_path):
+                os.mkdir(self.log_path)
+            else:
+                shutil.rmtree(self.log_path)
+        else:
+            pass
+        self.saver = tf.train.Saver()
+        self.iter_counter = 0
+
+    def cnn_net(self, inpt_holder, is_training, reuse=False):
+        with tf.variable_scope('CNN', reuse=reuse):
+            x = tf.layers.conv2d(inpt_holder, filters=64, kernel_size=[2, 2], strides=[2, 2], padding='SAME')
+            x = tf.layers.batch_normalization(x, training=is_training)
+            x = tf.nn.relu(x)
+            x = tf.layers.conv2d(x, filters=96, kernel_size=[3, 3], strides=[2, 2], padding='SAME')
+            x = tf.layers.batch_normalization(x, training=is_training)
+            x = tf.nn.relu(x)
+            x = tf.layers.conv2d(x, filters=128, kernel_size=[2, 2], strides=[2, 2], padding='SAME')
+            x = tf.layers.batch_normalization(x, training=is_training)
+            x = tf.nn.relu(x)
+            x = tf.layers.conv2d(x, filters=256, kernel_size=[3, 3], strides=[2, 2], padding='SAME')
+            x = tf.layers.batch_normalization(x, training=is_training)
+            x = tf.nn.relu(x)
+            x = tf.contrib.layers.flatten(x)
+            out = tf.layers.dense(x, 10)
+            # print(out)
+            return out
+
+    def _loss_func(self, nn_output, label_onehot):
+        xentropy = tf.nn.softmax_cross_entropy_with_logits(labels=label_onehot, logits=nn_output)
+        cost = tf.reduce_mean(xentropy)
+        return cost
+
+    def _accuracy(self, nn_output, label_onehot):
+        correct_prediction = tf.equal(tf.argmax(nn_output, 1), tf.argmax(label_onehot, 1))
+        return tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+    def _create_summary(self, cost_, accuracy_):
+        with tf.name_scope("summary/Train/") as scope:
+            train1 = tf.summary.scalar('Loss', cost_)
+            train2 = tf.summary.scalar('Accuracy', accuracy_)
+            summary_train = tf.summary.merge([train1, train2])
+        with tf.name_scope("summary/Test/") as scope:
+            test1 = tf.summary.scalar('Loss', cost_)
+            test2 = tf.summary.scalar('Accuracy', accuracy_)
+            summary_eval = tf.summary.merge([test1, test2])
+        return summary_train, summary_eval
+
+
 def show_normalized_img_square(normalized_img_batch, generate_num=100, w_mergin=5, h_mergin=5, w_init_mergin=5, \
                                h_init_mergin=5, background_color=(15, 15, 15), save_fig_name='', perm=False,
-                               imshow_mode=True):
+                               imshow_mode=False):
     """
     Draw the images of DNN's output on canvas and show (or save).
      Require : PIL(If not, please install pillows by pip)
@@ -203,7 +282,6 @@ def show_normalized_img_square(normalized_img_batch, generate_num=100, w_mergin=
     """
 
     """
-    
     Args : normalized_img_batch = ndarray of normalized image(0 <= pixel <=1)
         normalized_img_batch.shape = (batch, width, shape, channel=3)
     """
@@ -241,9 +319,10 @@ def show_normalized_img_square(normalized_img_batch, generate_num=100, w_mergin=
 if __name__ == '__main__':
     # Example of hot to use
     print('-network.py exapmle -')
-    vae_net = VAE(
-        img_w_h_ch=[32, 32, 3],
-        latent_dim=20,
-        log_path='./log/',
-        rm_exists_in_logdir=True,
-    )
+    network_cfg = {
+        'img_shape': [32, 32, 3],
+        'latent_dim': 64,
+        'log_path': './test/',
+        'log_overwrite_save': True,
+    }
+    vae_net = VAE(network_cfg)
