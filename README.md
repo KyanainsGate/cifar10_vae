@@ -24,9 +24,9 @@ This project contains the following codes.
 
 | Code| Explanation |
 | ------ | ------ |
-| [main.py](./main.py)   | Train the model of VAE (by train_vae()) and CNN-classification (by train_classification())|
+| [main.py](./main.py)   | Train the model of VAE (by train_vae() ) and CNN-classification (by train_classification() )|
 | [network.py](./network.py)  | The model of VAE(3-layer-encoder +3-layer-decoder) & CNN(5layer+batch_norm) |
-| [cifar10_loader.py](./cifar10_loader.py)  | Download CIFAR10-binary-data automatically and |
+| [cifar10_loader.py](./cifar10_loader.py)  | Download CIFAR10-binary-data automatically and some techniques of data-argumentation are implemented. |
 
 ## For Quick Start
 Run VAE model (Default)
