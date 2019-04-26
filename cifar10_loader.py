@@ -128,8 +128,12 @@ class Cifar10:
 
     """
 
-    def __init__(self, dirpath, data_number_for_train=False, get_samples_per_one_file=False):
+    def __init__(self, cifar10_cfg):
         # Make new directory
+        dirpath =  cifar10_cfg['Path_to_save_cifar10_bin']
+        data_number_for_train = cifar10_cfg['Load_file_num']
+        get_samples_per_one_file = cifar10_cfg['Get_Images_Per_One_file']
+
         if not os.path.exists(dirpath):
             print('CIFAR10 was NOT FOUND, so cretate new directory...')
             new_dirpath = dirpath.split('/cifar-10-batches-bin/')[0]
@@ -280,12 +284,11 @@ class Cifar10:
             start = i * self.data_size  # 32x32x3-1個目の要素からざーっとデータを取得
             label[i] = data[start]  # i個目の要素に対し，ラベルを格納．32x32x3が始まる直前にクラス名が出るのがcifar10の仕様
             img_arr[i] = data[start + 1: start + self.data_size]  # 行列に格納
-        print(img_arr.shape)
         img = img_arr.reshape(data_num, 3, 32, 32).transpose(0, 2, 3, 1)  # データ数の行，列として，32x32X3(RGB)
         img = img.reshape(data_num, -1)
         img = img.reshape(data_num, 32, 32, 3)
         canvas = Image.new('RGB', (320, 175), (
-            240, 240, 240))  # 新規の画像(マージに利用する背景画像)を作成し，canvasとして保存, サイズが(320,175)で，(240, 240, 240)は背景の色かな？
+            240, 240, 240))  # 新規の画像(マージに利用する背景画像)を作成し，canvasとして保存, サイズが(320,175)で，(240, 240, 240)は背景の色
         draw = ImageDraw.Draw(canvas)  # ImageDraw() などで画像オブジェクトを処理する
         for i in range(data_num):  # 10回のループ
             num = i if i < 5 else i - 5  # 列番号をここで指定．5列目到達で次の6枚目を0としてカウント
@@ -300,13 +303,16 @@ class Cifar10:
 if __name__ == '__main__':
     # Example of hot to use
     print('-cifar10_loader.py exapmle -')
-    Path_To_Save_Sicar10 = './cifar-10-batches-bin/'
-    Data_Augmentation_Ratio = 5
-    Get_Images_Per_One_file = 100  #
-    File_Id_To_visualise = 3
-    dataset = Cifar10(dirpath='./cifar-10-batches-bin/',
-                      data_number_for_train=Data_Augmentation_Ratio,
-                      get_samples_per_one_file=Get_Images_Per_One_file)
+
+    data_cfg = {
+        'Path_to_save_cifar10_bin': './cifar-10-batches-bin/',
+        'Load_file_num': 5,  # if Load_file_num=3, "data_batch_1.bin" to "data_batch_3.bin" will be used to training
+        'Data_Augmentation_Ratio': 1,
+        'Get_Images_Per_One_file': 10,
+    }
+    File_Id_To_visualise = 2
+
+    dataset = Cifar10(data_cfg)
     X_train, X_test, T_train, T_test, N_train, N_test \
         = dataset.fetch_bin_to_tensor(data_argumantation_int=1, reshape3d=True)
     dataset.test_figure(File_Id_To_visualise)
