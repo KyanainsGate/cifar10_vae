@@ -1,5 +1,6 @@
 # my pc config
 import matplotlib
+
 matplotlib.use('TkAgg')
 
 # For graphical module
@@ -118,6 +119,62 @@ def comb_reflec_and_cutput(image, rate=0.5):
     return image
 
 
+def show_normalized_img_square(normalized_img_batch, generate_num=100, w_mergin=5, h_mergin=5, w_init_mergin=5, \
+                               h_init_mergin=5, background_color=(15, 15, 15), save_fig_name='', perm=False,
+                               imshow_mode=False):
+    """
+    Draw the images of DNN's output on canvas and show (or save).
+     Require : PIL(If not, please install pillows by pip)
+
+    :param normalized_img_batch: The tensor of NN output, the shape of it is (batch, h, w, channel=3),
+            the value of them have to be normalized (e.g. 0 <= pixel_value <= 1)
+    :param generate_num: the generate image num
+    :param w_mergin:
+    :param h_mergin:
+    :param w_init_mergin:
+    :param h_init_mergin:
+    :param background_color:
+    :param save_fig_name: If you specify it, the <save_fig_name> is saved (e.g.) "path_to_dir/out.png"
+    :param perm: A bool:If true, perm the order of input tensor (= normalized_img_batch).
+    :param imshow_mode: If true, plt.show will called,
+    :return:
+    """
+
+    """
+    Args : normalized_img_batch = ndarray of normalized image(0 <= pixel <=1)
+        normalized_img_batch.shape = (batch, width, shape, channel=3)
+    """
+    gen_img_vertical = int(np.sqrt(generate_num))
+    img = normalized_img_batch * 255
+    print('Set normalized image shape : ', normalized_img_batch.shape)
+    # Set cavans for image
+    img_batch = img.shape[0]
+    img_w = img.shape[1]
+    img_h = img.shape[2]
+    canvas_w = w_init_mergin * 2 + img_w * gen_img_vertical + w_mergin * (gen_img_vertical - 1)
+    canvas_h = h_init_mergin * 2 + img_h * gen_img_vertical + h_mergin * (gen_img_vertical - 1)
+    canvas = Image.new('RGB', (canvas_w, canvas_h), background_color)
+    print('Image_type:RGB batch_size:' + str(generate_num) + ' width:' + str(canvas_w) + ' height' + str(canvas_h))
+    draw = ImageDraw.Draw(canvas)
+    if perm:
+        perm_id = np.random.permutation(img_batch)
+        print('Pemutation is True')
+    print('Drawing ...')
+    for i in range(generate_num):
+        row = i % gen_img_vertical
+        column = int(i / gen_img_vertical)
+        x = w_init_mergin + (img_w + w_mergin) * row  # マージン20pixelから，少し空けて
+        y = h_init_mergin + (img_h + h_mergin) * column
+        if perm:
+            i = perm_id[i]
+        canvas.paste(Image.fromarray(np.uint8(img[i])), (x, y))  # (x, y)を起点として画像を描く
+    if not save_fig_name == '':
+        print('save path to .png : ' + save_fig_name)
+        canvas.save(save_fig_name)
+    if imshow_mode:
+        canvas.show()
+
+
 class Cifar10:
     """
     Image were decoded by binary file, the shape of which (batch, channel, height(?), width) at first.
@@ -130,7 +187,7 @@ class Cifar10:
 
     def __init__(self, cifar10_cfg):
         # Make new directory
-        dirpath =  cifar10_cfg['Path_to_save_cifar10_bin']
+        dirpath = cifar10_cfg['Path_to_save_cifar10_bin']
         data_number_for_train = cifar10_cfg['Load_file_num']
         get_samples_per_one_file = cifar10_cfg['Get_Images_Per_One_file']
 
@@ -308,12 +365,13 @@ if __name__ == '__main__':
         'Path_to_save_cifar10_bin': './cifar-10-batches-bin/',
         'Load_file_num': 5,  # if Load_file_num=3, "data_batch_1.bin" to "data_batch_3.bin" will be used to training
         'Data_Augmentation_Ratio': 1,
-        'Get_Images_Per_One_file': 10,
+        'Get_Images_Per_One_file': 20,
     }
     File_Id_To_visualise = 2
 
     dataset = Cifar10(data_cfg)
     X_train, X_test, T_train, T_test, N_train, N_test \
         = dataset.fetch_bin_to_tensor(data_argumantation_int=1, reshape3d=True)
-    dataset.test_figure(File_Id_To_visualise)
-    plt.show()
+    show_normalized_img_square(X_train, save_fig_name='example.png')
+    # dataset.test_figure(File_Id_To_visualise)
+    # plt.show()

@@ -68,7 +68,7 @@ def train_vae(total_epoch=1000, batch_size=16, log_out_span=10, log_path=network
             fig_name = vae.log_path + 'epoch_' + str(epoch) + '_.png'
             generated_normalized_img = vae.generate_from_gausian(generate_img_num)  # random sampling from repara-trick
             ndarray_img = sess.run(generated_normalized_img, feed_dict=feed)
-            network.show_normalized_img_square(ndarray_img, save_fig_name=fig_name)
+            cifar10_loader.show_normalized_img_square(ndarray_img, save_fig_name=fig_name)
             # Test summary
             test_feed = {
                 vae.img_plh: X_test,
