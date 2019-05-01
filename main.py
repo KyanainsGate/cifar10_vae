@@ -2,6 +2,7 @@ import network
 import cifar10_loader
 import tensorflow as tf
 import numpy as np
+import pandas as pd
 
 data_cfg = {
     'Path_to_save_cifar10_bin': './cifar-10-batches-bin/',
@@ -13,7 +14,7 @@ data_cfg = {
 network_cfg = {
     'img_shape': [32, 32, 3],
     'latent_dim': 64,
-    'log_path': './test2/',
+    'log_path': './test_/',
     'log_overwrite_save': True,
 }
 
@@ -26,7 +27,7 @@ tf_config = tf.ConfigProto(
 )
 
 
-def train_vae(total_epoch=1000, batch_size=16, log_out_span=10, log_path=network_cfg['log_path']):
+def train_vae(total_epoch=1000, batch_size=16, log_out_span=5, log_path=network_cfg['log_path']):
     # Data
     dataset = cifar10_loader.Cifar10(data_cfg)
     X_train, X_test, T_train, T_test, N_train, N_test \
@@ -81,7 +82,8 @@ def train_vae(total_epoch=1000, batch_size=16, log_out_span=10, log_path=network
             print('save')
 
 
-def train_classification(total_epoch=1000, batch_size=16, log_out_span=10, log_path=network_cfg['log_path']):
+def train_classification(total_epoch=1000, batch_size=16, log_out_span=5, log_path=network_cfg['log_path'],
+                         out_to_csv=True):
     # Data
     dataset = cifar10_loader.Cifar10(data_cfg)
     X_train, X_test, T_train, T_test, N_train, N_test \
@@ -92,10 +94,16 @@ def train_classification(total_epoch=1000, batch_size=16, log_out_span=10, log_p
     sess = tf.Session(config=tf_config)
     init_op = tf.global_variables_initializer()
     sess.run(init_op)
-    train_loss_list = []
     saver = tf.train.Saver()
     log_writer = tf.summary.FileWriter(log_path, sess.graph)
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # For update NON-TRAINABLE parameter for batch norm.
+
+    # For csv
+    epoch_list = []
+    train_loss_list = []
+    train_acc_list = []
+    test_loss_list = []
+    test_acc_list = []
 
     def __eval_process(operation, data_type, all_data=False):
         X = None
@@ -127,8 +135,8 @@ def train_classification(total_epoch=1000, batch_size=16, log_out_span=10, log_p
             }
             if operation == 'loss_and_accuracy_result':
                 loss, accu = sess.run([cnn.loss, cnn.accuracy], feed_dict=feed)
-                loss_total += np.mean(loss) * batch_size
-                accu_total += np.mean(accu) * batch_size
+                loss_total += np.mean(loss) * batch_size / N
+                accu_total += np.mean(accu) * batch_size / N
             elif operation == 'summary_for_tensorboard':
                 summary_train, summary_test = sess.run([cnn.sum_train, cnn.sum_test], feed_dict=feed)
             else:
@@ -168,8 +176,26 @@ def train_classification(total_epoch=1000, batch_size=16, log_out_span=10, log_p
             test_summary = __eval_process(operation='summary_for_tensorboard', data_type='test')[3]
             log_writer.add_summary(train_summary, epoch)  # Write log to tensorboard of train state
             log_writer.add_summary(test_summary, epoch)  # same
-            # total loss
-
+            if out_to_csv:
+                # call whole data
+                train_loss, train_accu, _, __ = __eval_process(operation='loss_and_accuracy_result', data_type='train')
+                test_loss, test_accu, _, __ = __eval_process(operation='loss_and_accuracy_result', data_type='test')
+                # For csv
+                epoch_list.append(epoch)
+                train_loss_list.append(train_loss)
+                train_acc_list.append(train_accu)
+                test_loss_list.append(test_loss)
+                test_acc_list.append(test_accu)
+                tmp_df = pd.DataFrame(
+                    {'epoch': np.array(epoch_list),
+                     'Train_loss': np.array(train_loss_list),
+                     'Train_accuracy': np.array(train_acc_list),
+                     'Test_loss': np.array(test_loss_list),
+                     'Test_accuracy': np.array(test_acc_list),
+                     })
+                tmp_df.to_csv(log_path + 'loss_log.csv')
+            else:
+                pass
             # save model
             saver.save(sess, log_path + 'graph1')  # save graph.meta,graph.index and so on ...
             print('save')
@@ -177,5 +203,5 @@ def train_classification(total_epoch=1000, batch_size=16, log_out_span=10, log_p
 
 if __name__ == '__main__':
     print('Training iter')
-    train_vae()
-    # train_classification()
+    # train_vae()
+    train_classification()
