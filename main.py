@@ -3,12 +3,31 @@ import cifar10_loader
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+import argparse
+
+parser = argparse.ArgumentParser(description='Training method')  # Create parser
+parser.add_argument('model_type', help='set CNN or VAE')
+parser.add_argument('log_dir')
+parser.add_argument('epoch')
+parser.add_argument('batch')
+parser.add_argument('get_images_per_one_file',
+                    help='Set the number of images for learning from data_batch_<n>.bin file. The max of it is 10000.')
+parser.add_argument('gpu_id',
+                    help='Specify GPU ID (If your computer does not mount GPU, CPU is only used for training.)')
+args = parser.parse_args()
+
+MODEL_TYPE = args.model_type
+LOG_DIR = args.log_dir
+EPOCH = int(args.epoch)
+BATCH = int(args.batch)
+Get_Images_Per_One_file = int(args.get_images_per_one_file)
+GPU_ID = args.gpu_id
 
 data_cfg = {
     'Path_to_save_cifar10_bin': './cifar-10-batches-bin/',
     'Load_file_num': 5,
     'Data_Augmentation_Ratio': 1,
-    'Get_Images_Per_One_file': 200,
+    'Get_Images_Per_One_file': Get_Images_Per_One_file,
 }
 
 network_cfg = {
@@ -21,7 +40,8 @@ network_cfg = {
 # If you use GPU, please setting follow;
 tf_config = tf.ConfigProto(
     gpu_options=tf.GPUOptions(
-        visible_device_list="0",  # specify GPU number
+        # visible_device_list="0",  # specify GPU number
+        visible_device_list=GPU_ID,  # specify GPU number
         allow_growth=True
     )
 )
@@ -203,5 +223,19 @@ def train_classification(total_epoch=1000, batch_size=16, log_out_span=5, log_pa
 
 if __name__ == '__main__':
     print('Training iter')
-    # train_vae()
-    train_classification()
+    if MODEL_TYPE == 'VAE':
+        print('Variational AutoEncoder')
+        train_vae(
+            total_epoch=EPOCH,
+            batch_size=BATCH,
+            log_path=LOG_DIR
+        )
+    elif MODEL_TYPE == 'CNN':
+        print('CLASSIFICATION')
+        train_classification(
+            total_epoch=EPOCH,
+            batch_size=BATCH,
+            log_path=LOG_DIR,
+        )
+    else:
+        print('Specify appropriate MODEL name (CNN or VAE')
